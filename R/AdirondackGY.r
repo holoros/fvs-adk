@@ -1,5 +1,5 @@
 ################################################################################
-# v5.1.1
+# v5.1.2
 #
 # Adirondack Variant of the Forest Vegetation Simulator (FVS-ADK)                                                                                            #
 # Developed by Aaron Weiskittel, University of Maine, School of Forest Resources
@@ -9,7 +9,7 @@
 #
 ################################################################################
 
-AdirondackGYVersionTag = "AdirondackV5.1.1"
+AdirondackGYVersionTag = "AdirondackV5.1.2"
 
 ### required packages
 library(dplyr) # needed for arrange, mutate, left_join, group_by, summarise, across, ungroup
@@ -19,6 +19,25 @@ library(purrr) # needed for map
 ##############################
 #### major update summary ####
 ####
+
+# 5.1.2 (2026-09-10, stress test ahead of release to Ben Rice)
+  # Ran a two-layer stress test (ncasi_adk/adk_stress_test.R): (1) a grid of extreme/boundary inputs
+  #   (DBH 0.1-250 cm, BA 0-200 m2/ha, BAL 0-300, CSI 1-60 m, CR 0.01-0.999, TPH up to 20000) through
+  #   every SUNY.* function and Ingrowth.FUN; (2) 100-year AdirondackGYOneStand runs on 7 synthetic
+  #   stress stands (ultra-dense sapling cohort, near-empty single-tree stand, giant trees, extreme
+  #   low/high CSI, single dominant tree, spruce/balsam fir focus).
+  # All SUNY.* functions (height, crown base, diameter increment, height increment, survival) stayed
+  #   in range across the full grid: no NaN/Inf, no negative growth where impossible, no crown base
+  #   above total height, no survival probability outside [0,1]. All 7 stand runs completed the full
+  #   100-year horizon with no crashes, no NA/Inf increments, and no numerical blow-up (no DBH>500cm,
+  #   no HT>80m, no runaway single-year ingrowth pulse).
+  # One real finding: Ingrowth.FUN's IPH grows exponentially once ClimateSI exceeds roughly 40 m,
+  #   reaching into the millions of trees/ha/yr -- almost certainly outside the domain its untraced
+  #   coefficients were fit on. This matters because the figshare CSI raster evaluated this week for a
+  #   future release has a reported max of 48.9 m. Added a runtime warning (not a clamp, since no
+  #   verified safe bound exists) in Ingrowth.FUN; see the STRESS TEST FINDING comment there.
+  # No coefficient changed in this version; all other functions' numeric behavior is identical to
+  #   v5.1.1's finalized NY projections.
 
 # 5.1.1 (2026-09-10, full line-by-line audit against Weiskittel & Kuehne 2016 Forest Ecosystems 3:26
 #        and its 2019 erratum, ahead of release to Ben Rice)
@@ -648,6 +667,17 @@ Ingrowth.FUN=function(PARMS,CutPoint,BA,TPH,QMD,PHW,MinDBH,ClimateSI,cyclen=1)
     }
     IPH = ifelse(PI>=CutPoint,IPH,0)
     IPH = IPH * NY_TUNE_SCALAR  # no-op (=1.0) until a NY benchmark is available; see refit plan
+    ## STRESS TEST FINDING (2026-09-10): a 300-cell grid over BA/TPH/PHW/QMD/ClimateSI/MinDBH found
+    ## IPH grows exponentially once ClimateSI exceeds roughly 40 m (b4=+0.2248 on eta), reaching into
+    ## the millions of trees/ha/yr well before CSI=60. This is almost certainly outside the domain the
+    ## NLME coefficients were fit on (unconfirmed, since their source is untraced -- see header note).
+    ## It matters concretely: the figshare CSI raster this project evaluated (CurrentSI_m.tif) has a
+    ## reported max of 48.9 m, inside the blow-up zone, so swapping in that CSI source once its extent
+    ## is fixed must NOT be done without re-checking this. Warn rather than silently clamp, since no
+    ## verified safe upper bound exists; do not suppress this warning without establishing one.
+    if (any(ClimateSI > 30, na.rm=TRUE)) {
+      warning(sprintf("Ingrowth.FUN: ClimateSI up to %.1f m exceeds the ~30 m soft domain boundary observed in stress testing; IPH may be an extrapolation artifact, not a real prediction.", max(ClimateSI, na.rm=TRUE)))
+    }
     return(list(IPH=IPH))
 }
      
