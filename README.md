@@ -109,6 +109,10 @@ eastern hemlock, `RS`/`WS`/`BS` red/white/black spruce). See the `SPP ==` branch
 
 ## Version history
 
+- **v5.1.3** (2026-11-06) -- Diameter growth returned to FVS inside bark: `make_fvs_tree()`
+  multiplies it by the FVS-NE bark ratio (BKRAT) of each species, since FVS adds DG/BRATIO to
+  DBH. Before v5.1.3 FVS grew every AdirondackGY tree too fast by 1/BKRAT (3.7% to 13.6% across
+  FVS-NE species). `make_adk_tree()` stops if not run on the 108 FVS-NE species.
 - **v5.1.2** (2026-09-10) -- Stress-tested; added a `ClimateSI` extrapolation warning in
   `Ingrowth.FUN`. No coefficient changed.
 - **v5.1.1** (2026-09-10) -- Full line-by-line audit against the 2016 paper and its 2019

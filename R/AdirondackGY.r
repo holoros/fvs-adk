@@ -1,5 +1,5 @@
 ################################################################################
-# v5.1.2
+# v5.1.3
 #
 # Adirondack Variant of the Forest Vegetation Simulator (FVS-ADK)                                                                                            #
 # Developed by Aaron Weiskittel, University of Maine, School of Forest Resources
@@ -9,7 +9,7 @@
 #
 ################################################################################
 
-AdirondackGYVersionTag = "AdirondackV5.1.2"
+AdirondackGYVersionTag = "AdirondackV5.1.3"
 
 ### required packages
 library(dplyr) # needed for arrange, mutate, left_join, group_by, summarise, across, ungroup
@@ -19,6 +19,10 @@ library(purrr) # needed for map
 ##############################
 #### major update summary ####
 ####
+
+# 5.1.3
+  # diameter growth returned to FVS converted to inside bark using FVS-NE bark ratios (BKRAT)
+  # stop if not run on FVS-NE species
 
 # 5.1.2 (2026-09-10, stress test ahead of release to Ben Rice)
   # Ran a two-layer stress test (ncasi_adk/adk_stress_test.R): (1) a grid of extreme/boundary inputs
@@ -2018,6 +2022,12 @@ Summary.GY = function(tree) {
                   pRS.ba, pBS.ba, pWS.ba, pPB.ba, pYB.ba, pGB.ba)
 }
 
+# FVS-NE bark ratios (BKRAT) indexed by FVS species number
+fvs.ne.bkrat = c(0.9349, 0.9349, 0.956, rep(0.9324, 4), 0.920, 0.920, 0.890, 0.964,
+                 rep(0.950, 4), rep(0.934, 2), rep(0.964, 8), 0.950, rep(0.920, 3), rep(0.948, 3), rep(0.948, 2),
+                 rep(0.900, 5), 0.950, rep(0.900, 5), rep(0.900, 3), rep(0.900, 5), 0.940, rep(0.910, 5), rep(0.900, 4),
+                 rep(0.880, 3), rep(0.900, 2), rep(0.900, 2), rep(0.900, 27), rep(0.900, 11))
+
 ## Create Adirondack model input dataframe from FVS tree list
 #' Create ADK tree list dataframe
 #'
@@ -2029,14 +2039,16 @@ Summary.GY = function(tree) {
 #' @param spcodes Matrix: FVS species codes from fvsGetSpeciesCodes(). FVS
 #'   numeric code is the row number; column 'fvs' holds the alpha species code.
 #' @return Dataframe: Tree list with uppercase field names and metric units,
-#'   ready for AdirondackGYOneStand(). Key fields: id, TREE, SP, DBH (cm),
-#'   HT (m), CR (proportion), EXPF (plot-level trees per hectare), DG (cm),
-#'   HTG (m).
+#'   ready for AdirondackGYOneStand(). Key fields: id, TREE, SP, FVS.NUM (FVS
+#'   numeric species code), DBH (cm), HT (m), CR (proportion), EXPF (plot-level
+#'   trees per hectare), DG (cm), HTG (m).
 # Note: EXPF = TPA * num.plots * 2.47105 (stand TPA -> plot TPH)
 make_adk_tree = function(tree.list, num.plots, spcodes) {
   in.to.cm = 2.54
   ft.to.m = 0.3048
   ha.to.ac = 2.47105
+
+  if (nrow(spcodes) != length(fvs.ne.bkrat)) stop("AdirondackGY runs on FVS-NE: ", nrow(spcodes), " FVS species found, ", length(fvs.ne.bkrat), " expected")
 
   tree.list %>%
     dplyr::rename_with(toupper) %>%
@@ -2049,6 +2061,7 @@ make_adk_tree = function(tree.list, num.plots, spcodes) {
                   DG = DG * in.to.cm,
                   HTG = HTG * ft.to.m,
                   EXPF = EXPF * dplyr::coalesce(num.plots, 1L) * ha.to.ac,
+                  FVS.NUM = SP,
                   SP = spcodes[SP, 1])
 }
 
@@ -2057,7 +2070,7 @@ make_adk_tree = function(tree.list, num.plots, spcodes) {
 #' Create FVS return tree list
 #'
 #' @param incr.tree Dataframe: Original-tree rows from AdirondackGYOneStand()
-#'   output (rows where !is.na(id)). Required fields: id, dDBH (cm), dHT (m),
+#'   output (rows where !is.na(id)). Required fields: id, FVS.NUM, dDBH (cm), dHT (m),
 #'   HCB (m), dHCB (m), HT (m), dEXPF (plot TPH,
 #'   optional).
 #' @param num.plots Numeric: Number of plots in a stand. Used to convert
@@ -2073,7 +2086,7 @@ make_fvs_tree = function(tree, num.plots) {
   tofvs = tree %>%
     dplyr::transmute(
       id,
-      dg = dDBH * cm.to.in,
+      dg = dDBH * cm.to.in * fvs.ne.bkrat[FVS.NUM],
       htg = dHT * m.to.ft,
       cratio = -round((1 - ((HCB + dHCB) / (HT + dHT))) * 100, 0),
       mort = dEXPF * ac.to.ha / dplyr::coalesce(num.plots, 1L)) %>% 
