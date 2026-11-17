@@ -2028,6 +2028,20 @@ fvs.ne.bkrat = c(0.9349, 0.9349, 0.956, rep(0.9324, 4), 0.920, 0.920, 0.890, 0.9
                  rep(0.900, 5), 0.950, rep(0.900, 5), rep(0.900, 3), rep(0.900, 5), 0.940, rep(0.910, 5), rep(0.900, 4),
                  rep(0.880, 3), rep(0.900, 2), rep(0.900, 2), rep(0.900, 27), rep(0.900, 11))
 
+# Expected FVS-NE species order from config/ne.json JSP; BKRAT is positional.
+fvs.ne.codes = c("BF", "TA", "WS", "RS", "NS", "BS", "PI", "RN", "WP",
+                  "LP", "VP", "WC", "AW", "RC", "JU", "EH", "HM", "OP",
+                  "JP", "SP", "TM", "PP", "PD", "SC", "OS", "RM", "SM",
+                  "BM", "SV", "YB", "SB", "RB", "PB", "GB", "HI", "PH",
+                  "SL", "SH", "MH", "AB", "AS", "WA", "BA", "GA", "PA",
+                  "YP", "SU", "CT", "QA", "BP", "EC", "BT", "PY", "BC",
+                  "WO", "BR", "CK", "PO", "OK", "SO", "QI", "WK", "PN",
+                  "CO", "SW", "SN", "RO", "SK", "BO", "CB", "", "BU",
+                  "YY", "WR", "HK", "PS", "HY", "BN", "WN", "OO", "MG",
+                  "MV", "AP", "WT", "BG", "SD", "PW", "SY", "WL", "BK",
+                  "BL", "SS", "BW", "WB", "EL", "AE", "RL", "OH", "BE",
+                  "ST", "AI", "SE", "AH", "DW", "HT", "HH", "PL", "PR")
+
 ## Create Adirondack model input dataframe from FVS tree list
 #' Create ADK tree list dataframe
 #'
@@ -2049,6 +2063,7 @@ make_adk_tree = function(tree.list, num.plots, spcodes) {
   ha.to.ac = 2.47105
 
   if (nrow(spcodes) != length(fvs.ne.bkrat)) stop("AdirondackGY runs on FVS-NE: ", nrow(spcodes), " FVS species found, ", length(fvs.ne.bkrat), " expected")
+  if (!identical(trimws(as.character(spcodes[, 1])), fvs.ne.codes)) stop("AdirondackGY FVS-NE species order differs from the BKRAT table")
 
   tree.list %>%
     dplyr::rename_with(toupper) %>%
