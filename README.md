@@ -60,17 +60,12 @@ quarter of a percent for that stand set, so the gate's effect is small for typic
 conditions but is a real structural property of the submodel worth knowing before
 relying on it elsewhere.
 
-## Known open issue: survival coefficients for Balsam fir and Spruce
+## Survival coefficients for balsam fir and spruce
 
-The full line-by-line audit against the paper's Table 8 (see the v5.1.1 commit message
-and the `AUDIT FLAG` comments in `SUNY.surv` and `SUNY.survOCP`) found that for Balsam
-fir and the Spruce group (red, white, black), the extracted table places the nonzero
-mid-magnitude survival coefficient in the sqrt(BA) slot with BAL at zero, while the code
-has it the other way around: BAL nonzero, sqrt(BA) at zero. This could not be resolved
-because clean access to the raw PDF table was not available during the audit. It is
-flagged in the code rather than silently changed. Anyone with the original PDF or the
-underlying fit output should check this before treating those two groups' survival
-predictions as fully verified.
+Checked on November 20, 2026 against the rendered Table 8 and Equation 5 of Weiskittel et al.
+(2016): the balsam fir (-0.0383) and spruce (-0.0794) coefficients are in the BAL column
+(b54), as coded. Every species row of `SUNY.surv` and `SUNY.survOCP` matches Table 8, and the
+2019 correction does not change Equation 5.
 
 ## Known extrapolation hazard: ClimateSI above ~30-40 m
 
@@ -117,8 +112,9 @@ eastern hemlock, `RS`/`WS`/`BS` red/white/black spruce). See the `SPP ==` branch
 - **v5.1.2** (2026-09-10) -- Stress-tested; added a `ClimateSI` extrapolation warning in
   `Ingrowth.FUN`. No coefficient changed.
 - **v5.1.1** (2026-09-10) -- Full line-by-line audit against the 2016 paper and its 2019
-  erratum. Relabeled the ingrowth submodel's provenance; flagged (not changed) a possible
-  Balsam fir / Spruce survival coefficient swap. No coefficient changed from v5.1.0.
+  erratum. Relabeled the ingrowth submodel's provenance; flagged a possible
+  balsam fir and spruce survival coefficient swap, since checked and not a swap. No coefficient
+  changed from v5.1.0.
 - **v5.1.0** -- Prior working version (dependency cleanup, `make_adk_tree()` /
   `make_fvs_tree()` / `make_fvs_regen()` R-FVS data handoff helpers, trees-per-hectare
   correction, `AdirondackGYOneStand()` returns a data frame). See the source file's own
