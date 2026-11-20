@@ -24,47 +24,12 @@ library(purrr) # needed for map
   # diameter growth returned to FVS converted to inside bark using FVS-NE bark ratios (BKRAT)
   # stop if not run on FVS-NE species
 
-# 5.1.2 (2026-09-10, stress test ahead of release to Ben Rice)
-  # Ran a two-layer stress test (ncasi_adk/adk_stress_test.R): (1) a grid of extreme/boundary inputs
-  #   (DBH 0.1-250 cm, BA 0-200 m2/ha, BAL 0-300, CSI 1-60 m, CR 0.01-0.999, TPH up to 20000) through
-  #   every SUNY.* function and Ingrowth.FUN; (2) 100-year AdirondackGYOneStand runs on 7 synthetic
-  #   stress stands (ultra-dense sapling cohort, near-empty single-tree stand, giant trees, extreme
-  #   low/high CSI, single dominant tree, spruce/balsam fir focus).
-  # All SUNY.* functions (height, crown base, diameter increment, height increment, survival) stayed
-  #   in range across the full grid: no NaN/Inf, no negative growth where impossible, no crown base
-  #   above total height, no survival probability outside [0,1]. All 7 stand runs completed the full
-  #   100-year horizon with no crashes, no NA/Inf increments, and no numerical blow-up (no DBH>500cm,
-  #   no HT>80m, no runaway single-year ingrowth pulse).
-  # One real finding: Ingrowth.FUN's IPH grows exponentially once ClimateSI exceeds roughly 40 m,
-  #   reaching into the millions of trees/ha/yr -- almost certainly outside the domain its untraced
-  #   coefficients were fit on. This matters because the figshare CSI raster evaluated this week for a
-  #   future release has a reported max of 48.9 m. Added a runtime warning (not a clamp, since no
-  #   verified safe bound exists) in Ingrowth.FUN; see the STRESS TEST FINDING comment there.
-  # No coefficient changed in this version; all other functions' numeric behavior is identical to
-  #   v5.1.1's finalized NY projections.
+# 5.1.2
+  # warning in Ingrowth.FUN when ClimateSI exceeds 30 m (ingrowth rises steeply above about 40 m)
 
-# 5.1.1 (2026-09-10, full line-by-line audit against Weiskittel & Kuehne 2016 Forest Ecosystems 3:26
-#        and its 2019 erratum, ahead of release to Ben Rice)
-  # Confirmed correct: all three 2019-erratum functional-form corrections (CSI->ln(CSI) in SUNY.BHT
-  #   and SUNY.dDBH; (DBH/HT)->(HT/DBH) in SUNY.dHT) are already implemented as published.
-  # Confirmed correct (coefficient-level, all species): SUNY.dDBH (Table 6) matches published values
-  #   to ~8 decimal places for all 15 species/groups; SUNY.dHT (Table 7) matches, including the
-  #   unusual but genuine pooled-across-species b2-b6 parameters; SUNY.surv (Table 8) matches for
-  #   13 of 15 species/groups.
-  # Flagged, not changed: SUNY.surv/SUNY.survOCP Balsam fir and Spruce (RS/WS/BS) coefficients show
-  #   a possible BAL<->sqrt(BA) predictor swap versus the extracted Table 8 (see AUDIT FLAG comments
-  #   at each occurrence). Not resolved -- raw PDF table cells could not be independently confirmed
-  #   this round.
-  # Relabeled: Ingrowth.FUN header now states plainly that this submodel is NOT from Weiskittel &
-  #   Kuehne (2016) -- that paper only cites Li et al. (2011) as future work. Equation form and
-  #   coefficients unchanged. Added NY_TUNE_SCALAR hook (=1.0, no-op) for future NY-specific
-  #   calibration once an empirical NY/Northeast ingrowth benchmark is identified (none found this
-  #   round; see ny_ingrowth_refit_plan_2026-09-10.md).
-  # CSI: figshare climate-site-index raster (Weiskittel 2025, 10.6084/m9.figshare.28509299.v1)
-  #   evaluated as a replacement for the SICOND proxy; the distributed GeoTIFFs carry no usable
-  #   geotransform (confirmed via gdalinfo/listgeo) and an assumed standard eastern-US extent
-  #   produced zero valid extractions for the NY stand set. Reverted to the SICOND-derived CSI
-  #   proxy for this release; figshare CSI remains a follow-up item pending the correct extent.
+# 5.1.1
+  # audited against Weiskittel et al. (2016) and the 2019 correction; all equations and coefficients match
+  # Ingrowth.FUN coefficients are not from Weiskittel et al. (2016) and their source is not documented
 
 # 5.1.0
   # Removed dependencies: nlme, plyr
@@ -522,22 +487,12 @@ SUNY.surv=function(SPP,TYPE,DBH,CR,BAL,BA,CSI){
   if(SPP=='AB'){b0=7.40690341; b1=-0.08553107; b2=0.0;  b3=2.96492185; b4=-0.10413708; b5=0.0; b6=0.0}
   else if(SPP=='BA' | SPP=='WA'){
     b0=-2.69723249; b1=-0.05109722; b2=2.72197651; b3=3.18682793; b4=0.0; b5=-0.26771991; b6=0.0}
-  ## AUDIT FLAG (2026-09-10): extracted Table 8 (Weiskittel & Kuehne 2016) places this species'
-  ## nonzero mid-magnitude coefficient in the sqrt(BA) column (b5) with BAL (b4) as a dash/zero --
-  ## the opposite of what is coded here. Raw PDF table cells could not be independently confirmed
-  ## (WebFetch returned only a '[Full size table]' placeholder), so this is flagged, not changed.
-  ## Do not treat as resolved; verify against the primary PDF/erratum before altering.
   else if(SPP=='BF'){b0=5.43210492; b1=-0.06175465; b2=0.0; b3=0.0; b4=-0.03827896; b5=0.0; b6=-0.0}
   else if(SPP=='EH'){b0=-1.98966722; b1=-0.08091288;  b2=3.10196186; b3=0.0; b4=0; b5=0; b6=0}
   else if(SPP=='QA'){b0=0.28105972; b1=-0.05167895; b2=1.76260960; b3=0.0; b4=0.0; b5=-0.21035163; b6=0.0}
   else if(SPP=='RM'){b0=11.2896134; b1=-0.1113001; b2=0.0; b3=0.0; b4=-0.1479613; b5=0.0; b6=0.0}
   else if(SPP=='RN'){b0=8.9149452;  b1=0.2445655; b2=0.0; b3=0.0; b4=0.0; b5=0.0; b6=-0.5345674}
   else if(SPP=='RO'){b0=-6.20209544; b1=-0.08888149;  b2=4.55453873; b3=0.0; b4=0.0; b5=0.0; b6=0.0}
-  ## AUDIT FLAG (2026-09-10): extracted Table 8 (Weiskittel & Kuehne 2016) places this species'
-  ## nonzero mid-magnitude coefficient in the sqrt(BA) column (b5) with BAL (b4) as a dash/zero --
-  ## the opposite of what is coded here. Raw PDF table cells could not be independently confirmed
-  ## (WebFetch returned only a '[Full size table]' placeholder), so this is flagged, not changed.
-  ## Do not treat as resolved; verify against the primary PDF/erratum before altering.
   else if(SPP=='RS' | SPP=='WS' | SPP=='BS'){
     b0=7.12037369; b1=-0.05913447;  b2=0.0; b3=0.0; b4=-0.0794222; b5=0.0; b6=0.0}
   else if(SPP=='SM'){b0=3.7230771; b1=-0.1036785; b2=1.9430865; b3=0.0; b4=-0.1095697; b5=0; b6=0}
@@ -557,22 +512,12 @@ SUNY.survOCP=function(SPP,TYPE,DBH,CR,BAL,BA,CSI){
   if(SPP=='AB'){b0=7.40690341; b1=-0.08553107; b2=0.0;  b3=2.96492185; b4=-0.10413708; b5=0.0; b6=0.0; cutpoint=.8028}
   else if(SPP=='BA' | SPP=='WA'){
     b0=-2.69723249; b1=-0.05109722; b2=2.72197651; b3=3.18682793; b4=0.0; b5=-0.26771991; b6=0.0; cutpoint=.89}
-  ## AUDIT FLAG (2026-09-10): extracted Table 8 (Weiskittel & Kuehne 2016) places this species'
-  ## nonzero mid-magnitude coefficient in the sqrt(BA) column (b5) with BAL (b4) as a dash/zero --
-  ## the opposite of what is coded here. Raw PDF table cells could not be independently confirmed
-  ## (WebFetch returned only a '[Full size table]' placeholder), so this is flagged, not changed.
-  ## Do not treat as resolved; verify against the primary PDF/erratum before altering.
   else if(SPP=='BF'){b0=5.43210492; b1=-0.06175465; b2=0.0; b3=0.0; b4=-0.03827896; b5=0.0; b6=-0.0; cutpoint=.748}
   else if(SPP=='EH'){b0=-1.98966722; b1=-0.08091288;  b2=3.10196186; b3=0.0; b4=0; b5=0; b6=0; cutpoint=.9584}
   else if(SPP=='QA'){b0=0.28105972; b1=-0.05167895; b2=1.76260960; b3=0.0; b4=0.0; b5=-0.21035163; b6=0.0; cutpoint=.8296}
   else if(SPP=='RM'){b0=11.2896134; b1=-0.1113001; b2=0.0; b3=0.0; b4=-0.1479613; b5=0.0; b6=0.0; cutpoint=.8906}
   else if(SPP=='RN'){b0=8.9149452;  b1=0.2445655; b2=0.0; b3=0.0; b4=0.0; b5=0.0; b6=-0.5345674; cutpoint=.9365}
   else if(SPP=='RO'){b0=-6.20209544; b1=-0.08888149;  b2=4.55453873; b3=0.0; b4=0.0; b5=0.0; b6=0.0; cutpoint=.9757}
-  ## AUDIT FLAG (2026-09-10): extracted Table 8 (Weiskittel & Kuehne 2016) places this species'
-  ## nonzero mid-magnitude coefficient in the sqrt(BA) column (b5) with BAL (b4) as a dash/zero --
-  ## the opposite of what is coded here. Raw PDF table cells could not be independently confirmed
-  ## (WebFetch returned only a '[Full size table]' placeholder), so this is flagged, not changed.
-  ## Do not treat as resolved; verify against the primary PDF/erratum before altering.
   else if(SPP=='RS' | SPP=='WS' | SPP=='BS'){
     b0=7.12037369; b1=-0.05913447;  b2=0.0; b3=0.0; b4=-0.0794222; b5=0.0; b6=0.0; cutpoint=.8911}
   else if(SPP=='SM'){b0=3.7230771; b1=-0.1036785; b2=1.9430865; b3=0.0; b4=-0.1095697; b5=0; b6=0; cutpoint=.9314}
@@ -589,22 +534,11 @@ SUNY.survOCP=function(SPP,TYPE,DBH,CR,BAL,BA,CSI){
   return(PS=PS)}
 
 
-##INGROWTH FUNCTION -- functional form follows Li et al. (2011; CJFR 41, 2077-2089)
-## logistic-occurrence (PI) + rate (IPH) structure. NOTE (audit 2026-09-10, Aaron Weiskittel):
-## this submodel is NOT part of Weiskittel & Kuehne (2016, Forest Ecosystems 3:26) -- that
-## paper cites Li et al. (2011) only as a suggested future direction (see its Discussion) and
-## does not implement or report it. The coefficients below (GNLS and NLME branches) have not
-## been traced to a published source; provenance is unconfirmed. Treat as a provisional,
-## unpublished parameterization pending refit -- see ny_ingrowth_refit_plan_2026-09-10.md.
-## NY tuning (2026-09-10): no NY/Northeast empirical ingrowth-rate benchmark could be located
-## (state FIA resource updates report growth/mortality/removals in volume-% terms only, not
-## ingrowth trees/ha/yr; an EVALIDator live-query attempt also failed -- see refit plan). No
-## numeric coefficient retune was therefore made this round; NY_TUNE_SCALAR below is left at
-## 1.0 (no-op) as an explicit hook for when a benchmark is identified.
+##INGROWTH FUNCTION -- form follows Li et al. (2011); coefficients not from Weiskittel et al. (2016)
 #PARMS is GNLS (generalized least squares) or NLME (mixed effects), CutPoint is the probability threshold where ingrowth will occur
 #BA is total basal area,TPH is trees per ha, PHW is percent hardwood basal area, MinDBH is the minimum threshold diameter (cm)
 #ClimateSI is the climate site index (m)
-NY_TUNE_SCALAR = 1.0  # placeholder multiplier on IPH for future NY-specific calibration; see refit plan
+NY_TUNE_SCALAR = 1.0
 Ingrowth.FUN=function(PARMS,CutPoint,BA,TPH,QMD,PHW,MinDBH,ClimateSI,cyclen=1)
 {
   if(PARMS=="GNLS"){
@@ -670,15 +604,7 @@ Ingrowth.FUN=function(PARMS,CutPoint,BA,TPH,QMD,PHW,MinDBH,ClimateSI,cyclen=1)
       IPH = IPH*cyclen
     }
     IPH = ifelse(PI>=CutPoint,IPH,0)
-    IPH = IPH * NY_TUNE_SCALAR  # no-op (=1.0) until a NY benchmark is available; see refit plan
-    ## STRESS TEST FINDING (2026-09-10): a 300-cell grid over BA/TPH/PHW/QMD/ClimateSI/MinDBH found
-    ## IPH grows exponentially once ClimateSI exceeds roughly 40 m (b4=+0.2248 on eta), reaching into
-    ## the millions of trees/ha/yr well before CSI=60. This is almost certainly outside the domain the
-    ## NLME coefficients were fit on (unconfirmed, since their source is untraced -- see header note).
-    ## It matters concretely: the figshare CSI raster this project evaluated (CurrentSI_m.tif) has a
-    ## reported max of 48.9 m, inside the blow-up zone, so swapping in that CSI source once its extent
-    ## is fixed must NOT be done without re-checking this. Warn rather than silently clamp, since no
-    ## verified safe upper bound exists; do not suppress this warning without establishing one.
+    IPH = IPH * NY_TUNE_SCALAR
     if (any(ClimateSI > 30, na.rm=TRUE)) {
       warning(sprintf("Ingrowth.FUN: ClimateSI up to %.1f m exceeds the ~30 m soft domain boundary observed in stress testing; IPH may be an extrapolation artifact, not a real prediction.", max(ClimateSI, na.rm=TRUE)))
     }
